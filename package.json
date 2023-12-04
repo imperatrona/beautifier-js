@@ -16,25 +16,28 @@
   },
   "devDependencies": {
     "@types/mongoose": "^5.10.4",
-    "@types/node": "^14.14.35",
     "@types/needle": "^2.5.1",
+    "@types/node": "^14.14.35",
     "concurrently": "^6.0.0",
+    "drizzle-kit": "^0.20.6",
     "nodemon": "^2.0.7"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.4.2",
     "@typegoose/typegoose": "^7.6.0",
+    "better-sqlite3": "^9.2.0",
+    "cheerio": "^1.0.0-rc.6",
     "dotenv": "^8.2.0",
+    "drizzle-orm": "^0.29.1",
+    "jsdom": "^16.5.3",
     "module-alias": "^2.2.2",
     "mongoose": "5.10.18",
-    "telegraf": "^4.3.0",
-    "telegraf-i18n": "^6.6.0",
-    "typescript": "^4.2.3",
     "needle": "^2.5.1",
     "puppeteer": "5.4.1",
+    "telegraf": "^4.3.0",
+    "telegraf-i18n": "^6.6.0",
     "telegraph-node": "^1.0.4",
-    "cheerio": "^1.0.0-rc.6",
-    "@mozilla/readability":"^0.4.2",
-    "jsdom":"^16.5.3"
+    "typescript": "^4.2.3"
   },
   "_moduleAliases": {
     "@": "dist"
