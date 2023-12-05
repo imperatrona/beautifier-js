@@ -93,15 +93,16 @@ export function setupBeautify(bot: Telegraf<Context>) {
   });
 
   bot.command("interactive", async (ctx) => {
-    let chat = ctx.dbchat;
+    const chat = ctx.dbchat;
     await switchInteractive(chat.chatId, chat.interactive);
     ctx.reply("ok");
   });
 
   bot.command("instant", async (ctx) => {
     if (
-      "text" in ctx.message.reply_to_message ||
-      "caption" in ctx.message.reply_to_message
+      ctx.message.reply_to_message &&
+      ("text" in ctx.message.reply_to_message ||
+        "caption" in ctx.message.reply_to_message)
     ) {
       let [detected_urls, url_place, url_type] = detectURL(
         ctx.message.reply_to_message
