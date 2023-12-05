@@ -288,20 +288,3 @@ function sendResponse(
     }
   }
 }
-
-function toTable() {
-  //               from telegraph import Telegraph
-  // telegraph = Telegraph()
-  // telegraph.create_account(short_name='1337')
-  // with open('/Users/deantipin/picture.png', 'rb') as f:
-  //     path = requests.post(
-  //                     'https://telegra.ph/upload', files={'file':
-  //                                                         ('file', f,
-  //                                                         'image/jpeg')}).json()[0]['src']
-  // response = telegraph.create_page(
-  //     'Hey',
-  //     html_content="<p>Hello, world!</p> \
-  //                   <img src='{}'/>".format(path),
-  // )
-  // print('http://telegra.ph/{}'.format(response['path']))
-}
