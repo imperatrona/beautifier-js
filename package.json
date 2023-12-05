@@ -9,10 +9,10 @@
   "private": false,
   "scripts": {
     "distribute": "npm run build-ts && node dist/app.js",
-    "develop": "concurrently -k -i -p \"[{name}]\" -n \"Node,TypeScript\" -c \"yellow.bold,cyan.bold\" \"yarn watch-js\" \"yarn watch-ts\"",
+    "develop": "concurrently -k -i -p \"[{name}]\" -n \"Node,TypeScript\" -c \"yellow.bold,cyan.bold\" \"npm run watch-js\" \"npm run watch-ts\"",
     "build-ts": "npx tsc --skipLibCheck",
     "watch-ts": "npx tsc -w --skipLibCheck",
-    "watch-js": "nodemon dist/app.js",
+    "watch-js": "npx nodemon dist/app.js",
     "migrate": "npx drizzle-kit generate:sqlite && npx tsx src/models/migrate.ts"
   },
   "devDependencies": {
