@@ -36,15 +36,3 @@ export const chats = sqliteTable(
     chatIdIndex: uniqueIndex("chatIdIndex").on(chats.chatId),
   })
 );
-
-export const users = sqliteTable(
-  "users",
-  {
-    ...base,
-    userId: integer("user_id"),
-    language: text("language").default("en"),
-  },
-  (users) => ({
-    userIdIndex: uniqueIndex("userIdIndex").on(users.userId),
-  })
-);

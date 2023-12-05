@@ -13,6 +13,3 @@ export type InsertArticle = typeof schema.articles.$inferInsert;
 
 export type Chat = typeof schema.chats.$inferSelect;
 export type InsertChat = typeof schema.chats.$inferInsert;
-
-export type User = typeof schema.users.$inferSelect;
-export type InsertUser = typeof schema.users.$inferInsert;

@@ -10,13 +10,10 @@ import { setupHelp } from "@/commands/help";
 import { setupBeautify } from "@/commands/beautify";
 import { setupI18N } from "@/helpers/i18n";
 import { setupLanguage } from "@/commands/language";
-import { attachUser } from "@/middlewares/attachUser";
 import { attachChat } from "@/middlewares/attachChat";
 
 // Check time
 bot.use(checkTime);
-// Attach user
-bot.use(attachUser);
 // Attach chat
 bot.use(attachChat);
 // Setup localization

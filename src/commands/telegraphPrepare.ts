@@ -58,7 +58,7 @@ function addBotLink(articleArray: any[]) {
   articleArray.unshift({ tag: "br" });
   articleArray.unshift({
     tag: "a",
-    attrs: { href: "https://t.me/BeautifierSimplifierBot" },
+    attrs: { href: "https://t.me/beautifierrebornbot" },
     children: ["Made with Beautifier"],
   });
   return articleArray;
