@@ -3,9 +3,9 @@ import { db } from "./client";
 import { chats } from "./schema";
 
 export async function findChat(id: number) {
-  let chat = await db.query.chats.findFirst({
-    where: eq(chats.chatId, id),
-  });
+  let chat = (
+    await db.select().from(chats).where(eq(chats.chatId, id)).limit(1)
+  )[0];
   if (!chat) {
     try {
       chat = (
@@ -17,9 +17,9 @@ export async function findChat(id: number) {
           .returning()
       )[0];
     } catch (err) {
-      chat = await db.query.chats.findFirst({
-        where: eq(chats.chatId, id),
-      });
+      chat = (
+        await db.select().from(chats).where(eq(chats.chatId, id)).limit(1)
+      )[0];
     }
   }
   return chat;
