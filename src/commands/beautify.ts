@@ -1,6 +1,6 @@
-import { iv_links } from "@/helpers/iv_links";
-
+import "dotenv/config";
 import { Telegraf, Context } from "telegraf";
+import { iv_links } from "@/helpers/iv_links";
 
 const telegraph = require("telegraph-node");
 import { URL } from "url";
@@ -26,6 +26,8 @@ import { addPrevNext, createPages, splitArray } from "./telegraphPrepare";
 import { detectURL, processURL } from "./urlprocessor";
 import { Atransform } from "./contentTransformer";
 
+const ADMIN_ID = parseInt(process.env.ADMIN_ID);
+
 export function setupBeautify(bot: Telegraf<Context>) {
   bot.command("clear", async (ctx) => {
     let [urls, _] = detectURL(ctx.message.reply_to_message);
@@ -38,7 +40,7 @@ export function setupBeautify(bot: Telegraf<Context>) {
   });
 
   bot.command("countChats", async (ctx) => {
-    if (ctx.message.from.id == 180001222) {
+    if (ctx.message.from.id == ADMIN_ID) {
       let chats = await findAllChats();
       let users_tot = 0;
       let chat_nr = 0;
@@ -77,15 +79,14 @@ export function setupBeautify(bot: Telegraf<Context>) {
   });
 
   bot.command("countDocs", async (ctx) => {
-    if (ctx.message.from.id == 180001222) {
+    if (ctx.message.from.id == ADMIN_ID) {
       ctx.reply(" " + (await countDocs()));
     }
   });
 
   bot.command("clearAll", async (ctx) => {
-    //TODO: owner id should be in env
     //TODO: move chat counting to another package
-    if (ctx.message.from.id == 180001222) {
+    if (ctx.message.from.id == ADMIN_ID) {
       await deleteAllArticles();
     }
     await ctx.deleteMessage(ctx.message.message_id);
