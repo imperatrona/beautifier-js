@@ -1,46 +1,64 @@
-import { prop, getModelForClass } from '@typegoose/typegoose'
+import { eq, sql } from "drizzle-orm";
+import { db } from "./client";
+import { chats } from "./schema";
 
-export class Chat {
-    @prop({ required: true, index: true, unique: true })
-    id: number
-
-    @prop({ required: true, default: 'en' })
-    language: string
-    
-    @prop({ required: true, default: true })
-    interactive: boolean
-}
-
-// Get Chat model
-const ChatModel = getModelForClass(Chat, {
-    schemaOptions: { timestamps: true },
-})
-
-// Get or create chat
 export async function findChat(id: number) {
-    let chat = await ChatModel.findOne({ id })
-    if (!chat) {
-        try {
-            chat = await new ChatModel({ id }).save()
-        } catch (err) {
-            chat = await ChatModel.findOne({ id })
-        }
+  let chat = await db.query.chats.findFirst({
+    where: eq(chats.chatId, id),
+  });
+  if (!chat) {
+    try {
+      chat = (
+        await db
+          .insert(chats)
+          .values({
+            chatId: id,
+          })
+          .returning()
+      )[0];
+    } catch (err) {
+      chat = await db.query.chats.findFirst({
+        where: eq(chats.chatId, id),
+      });
     }
-    return chat
-}
-//function to delete chat by id
-export async function deleteChat(id: number) {
-    await ChatModel.deleteOne({ id })
+  }
+  return chat;
 }
 
-export async function findOnlyChat(id: number) {
-    return await ChatModel.findOne({ id })
+export async function switchInteractive(id: number, value: boolean) {
+  return (
+    await db
+      .update(chats)
+      .set({ interactive: !value })
+      .where(eq(chats.chatId, id))
+      .returning()
+  )[0];
+}
+
+export async function changeLanguage(id: number, language: string) {
+  return (
+    await db
+      .update(chats)
+      .set({ language: language })
+      .where(eq(chats.chatId, id))
+      .returning()
+  )[0];
+}
+
+export async function deleteChat(id: number) {
+  await db.delete(chats).where(eq(chats.chatId, id));
 }
 
 export async function findAllChats() {
-    return await ChatModel.find({})
+  return await db.select().from(chats);
 }
 
 export async function countChats() {
-    return await ChatModel.countDocuments({})
+  const count = await db
+    .select({
+      count: sql`count() as count`,
+    })
+    .from(chats);
+
+  return count[0].count;
 }

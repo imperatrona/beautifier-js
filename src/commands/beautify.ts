@@ -1,5 +1,4 @@
 import { iv_links } from "@/helpers/iv_links";
-import { DocumentType } from "@typegoose/typegoose";
 
 import { Telegraf, Context } from "telegraf";
 
@@ -20,6 +19,7 @@ import {
   Article,
   findAllChats,
   deleteChat,
+  switchInteractive,
 } from "../models";
 import { countDocs } from "../models";
 import { addPrevNext, createPages, splitArray } from "./telegraphPrepare";
@@ -27,9 +27,6 @@ import { detectURL, processURL } from "./urlprocessor";
 import { Atransform } from "./contentTransformer";
 
 export function setupBeautify(bot: Telegraf<Context>) {
-  bot.command(["help", "start"], (ctx) => {
-    ctx.replyWithHTML(ctx.i18n.t("help"));
-  });
   bot.command("clear", async (ctx) => {
     let [urls, _] = detectURL(ctx.message.reply_to_message);
     urls.forEach(async (element) => {
@@ -48,10 +45,10 @@ export function setupBeautify(bot: Telegraf<Context>) {
       let users_pr = 0;
       for (let element of chats) {
         try {
-          let chatObj = await ctx.telegram.getChat(element.id);
+          let chatObj = await ctx.telegram.getChat(element.chatId);
           if (chatObj == undefined) {
             //delete chat from Chat db by id
-            await deleteChat(element.id);
+            await deleteChat(element.chatId);
             continue;
           }
 
@@ -60,7 +57,7 @@ export function setupBeautify(bot: Telegraf<Context>) {
           } else {
             chat_nr += 1;
 
-            users_tot += await ctx.telegram.getChatMembersCount(element.id);
+            users_tot += await ctx.telegram.getChatMembersCount(element.chatId);
           }
         } catch (err) {
           console.log(err);
@@ -96,8 +93,7 @@ export function setupBeautify(bot: Telegraf<Context>) {
 
   bot.command("interactive", async (ctx) => {
     let chat = ctx.dbchat;
-    chat.interactive = !chat.interactive;
-    chat = await (chat as any).save();
+    await switchInteractive(chat.chatId, chat.interactive);
     ctx.reply("ok");
   });
 
@@ -142,9 +138,9 @@ async function messageProcessing(detected_urls: any[], ctx: Context) {
       final_urls.push(link);
       console.log(link);
     } else {
-      let art: DocumentType<Article> = await findArticle(link);
+      let art: Article = await findArticle(link);
       if (art) {
-        final_urls.push(art.telegraph_url[0]);
+        final_urls.push(art.telegraphUrl[0]);
       } else {
         if (
           !link.includes("telegra.ph") &&
@@ -247,7 +243,6 @@ function sendResponse(
   reply = false
 ) {
   if (final_urls.length > 0) {
-    console.log(final_urls);
     let orig_msg = "";
     if (reply) {
       orig_msg =
