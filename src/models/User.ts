@@ -1,27 +1,26 @@
-import { prop, getModelForClass } from '@typegoose/typegoose'
+import { eq } from "drizzle-orm";
+import { db } from "./client";
+import { users } from "./schema";
 
-export class User {
-  @prop({ required: true, index: true, unique: true })
-  id: number
-
-  @prop({ required: true, default: 'en' })
-  language: string
-}
-
-// Get User model
-const UserModel = getModelForClass(User, {
-  schemaOptions: { timestamps: true },
-})
-
-// Get or create user
 export async function findUser(id: number) {
-  let user = await UserModel.findOne({ id })
+  let user = await db.query.users.findFirst({
+    where: eq(users.userId, id),
+  });
   if (!user) {
     try {
-      user = await new UserModel({ id }).save()
+      user = (
+        await db
+          .insert(users)
+          .values({
+            userId: id,
+          })
+          .returning()
+      )[0];
     } catch (err) {
-      user = await UserModel.findOne({ id })
+      user = await db.query.users.findFirst({
+        where: eq(users.userId, id),
+      });
     }
   }
-  return user
+  return user;
 }

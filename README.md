@@ -1,4 +1,4 @@
-<a href='https://t.me/BeautifierSimplifierBot'>@BeautifierSimplifierBot</a>
+<a href='https://t.me/BeautifierRebornBot'>@BeautifierRebornBot</a>
 
 # Telegram bot which transforms any link in Instant View
 
@@ -9,22 +9,21 @@ _Just remember, Readability and Telegraph are not perfect. Readability **can ski
 
 Hopefully these drawbacks will be solved in the future by using Chrome's Readability engine and by generating images of tables for telegraph.
 
-
 # Installation and local launch
 
-1. Clone this repo: `git clone https://github.com/Moldoteck/Beautifier`
-2. Launch the [mongo database](https://www.mongodb.com/) locally
-3. Create `.env` with the environment variables listed below
-4. Run `yarn install` in the root folder
-5. Run `yarn develop`
+1. Clone this repo: `git clone https://github.com/imperatrona/Beautifier`
+2. Create `.env` with the environment variables listed below
+3. Run `npm install` in the root folder
+4. Run `npm run migrate`
+5. Run `npm run develop`
 
 And you should be good to go! Feel free to fork and submit pull requests. Thanks!
 
 # Environment variables
 
 - `TOKEN` — Telegram bot token
-- `MONGO`— URL of the mongo database
 - `TELEGRAPH_TOKEN`— Token for creating Telegraph pages. You can get it by calling appropiate API
+- `SQLITE`— URL of the mongo database
 
 Also, please, consider looking at `.env.sample`.
 
