@@ -8,7 +8,8 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "distribute": "npm run build-ts && node dist/app.js",
+    "start": "node dist/app.js",
+    "distribute": "npm run build-ts && npm run start",
     "develop": "npx concurrently -k -i -p \"[{name}]\" -n \"Node,TypeScript\" -c \"yellow.bold,cyan.bold\" \"npm run watch-js\" \"npm run watch-ts\"",
     "build-ts": "npx tsc --skipLibCheck",
     "watch-ts": "npx tsc -w --skipLibCheck",
