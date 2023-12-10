@@ -22,6 +22,7 @@
     "drizzle-kit": "^0.20.6"
   },
   "dependencies": {
+    "@libsql/client": "^0.4.0-pre.5",
     "@mozilla/readability": "^0.4.2",
     "better-sqlite3": "^9.2.1",
     "cheerio": "^1.0.0-rc.6",

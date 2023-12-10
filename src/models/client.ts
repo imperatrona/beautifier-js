@@ -1,11 +1,13 @@
 import "dotenv/config";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/libsql";
+import { createClient } from "@libsql/client";
 
 import * as schema from "./schema";
 
-const sqlite = new Database(process.env.SQLITE ?? "data.db");
-sqlite.pragma("journal_mode = WAL");
+const sqlite = createClient({
+  url: process.env.TURSO_URL,
+  authToken: process.env.TURSO_TOKEN,
+});
 export const db = drizzle(sqlite, { schema });
 
 export type Article = typeof schema.articles.$inferSelect;
