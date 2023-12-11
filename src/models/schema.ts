@@ -21,6 +21,7 @@ export const articles = sqliteTable(
   },
   (articles) => ({
     urlIndex: uniqueIndex("urlIndex").on(articles.url),
+    urlLinkIndex: uniqueIndex("urlLinkIndex").on(articles.url),
   })
 );
 
