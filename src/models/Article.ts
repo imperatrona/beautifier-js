@@ -6,26 +6,21 @@ export type Article = typeof articles.$inferSelect;
 export type InsertArticle = typeof articles.$inferInsert;
 
 export async function createArticle(url: string, telegraph_url: string[]) {
-  let article = await db.query.articles.findFirst({
-    where: eq(articles.url, url),
-  });
-
-  if (!article) {
-    try {
-      article = (
-        await db
-          .insert(articles)
-          .values({
-            url: url,
-            telegraphUrl: telegraph_url,
-          })
-          .returning()
-      )[0];
-    } catch (err) {
-      article = await db.query.articles.findFirst({
-        where: eq(articles.url, url),
-      });
-    }
+  let article = null;
+  try {
+    article = (
+      await db
+        .insert(articles)
+        .values({
+          url: url,
+          telegraphUrl: telegraph_url,
+        })
+        .returning()
+    )[0];
+  } catch (err) {
+    article = await db.query.articles.findFirst({
+      where: eq(articles.url, url),
+    });
   }
   return article;
 }
