@@ -1,4 +1,4 @@
-import needle = require("needle");
+import needle from "needle";
 
 const allowed_tags = {
   body: 1,

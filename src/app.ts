@@ -1,32 +1,44 @@
-// Setup @/ aliases for modules
 import "module-alias/register";
-// Config dotenv
+
 import * as dotenv from "dotenv";
-dotenv.config({ path: `${__dirname}/../.env` });
-// Dependencies
-import { bot } from "@/helpers/bot";
-import { checkTime } from "@/middlewares/checkTime";
-import { setupHelp } from "@/commands/help";
-import { setupBeautify } from "@/commands/beautify";
-import { setupI18N } from "@/helpers/i18n";
-import { setupLanguage } from "@/commands/language";
-import { attachUser } from "@/middlewares/attachUser";
-import { attachChat } from "@/middlewares/attachChat";
+dotenv.config();
 
-// Check time
-bot.use(checkTime);
-// Attach user
-// bot.use(attachUser);
-// Attach chat
-bot.use(attachChat);
-// Setup localization
-setupI18N(bot);
-// Setup commands
-setupHelp(bot);
-setupLanguage(bot);
-setupBeautify(bot);
+import { beautify } from "@/commands/beautify";
+import { help } from "@/commands/help";
+import { language } from "@/commands/language";
+import type { Context, SessionData } from "@/context";
+import { db } from "@/models/client";
+import { sessions } from "@/models/schema";
+import { DrizzleAdapter } from "@/models/session";
+import { I18n } from "@grammyjs/i18n";
+import { hydrateReply } from "@grammyjs/parse-mode";
+import { Bot, session } from "grammy";
 
-// Start bot
-bot.launch().then(() => {
-  console.info("Bot is up and running");
-});
+const bot = new Bot<Context>(process.env.TOKEN);
+
+bot.use(
+	session({
+		initial: () => ({
+			__language_code: "en",
+			interactive: true,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+		}),
+		storage: new DrizzleAdapter<SessionData>(db, sessions),
+	}),
+);
+
+bot.use(
+	new I18n<Context>({
+		defaultLocale: "en",
+		directory: "./locales",
+		useSession: true,
+	}),
+);
+bot.use(hydrateReply);
+
+bot.use(help);
+bot.use(language);
+bot.use(beautify);
+
+bot.start({ onStart: () => console.info("Bot is up and running") });

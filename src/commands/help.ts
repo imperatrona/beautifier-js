@@ -1,7 +1,8 @@
-import { Telegraf, Context } from 'telegraf'
+import type { Context } from "@/context";
+import { Composer } from "grammy";
 
-export function setupHelp(bot: Telegraf<Context>) {
-  bot.command(['help', 'start'], (ctx) => {
-    ctx.replyWithHTML(ctx.i18n.t('help'))
-  })
-}
+export const help = new Composer<Context>();
+
+help.command(["help", "start"], async (ctx) => {
+	ctx.replyWithHTML(ctx.t("help"));
+});

@@ -1,290 +1,239 @@
-import { iv_links } from "@/helpers/iv_links";
-
-import { Telegraf, Context } from "telegraf";
-
-const telegraph = require("telegraph-node");
-import { URL } from "url";
-const ndl = require("needle");
-const cheerio = require("cheerio");
-
-const { Readability, isProbablyReaderable } = require("@mozilla/readability");
-var { JSDOM } = require("jsdom");
-const jsdom = require("jsdom");
-
+import { Atransform } from "@/commands/contentTransformer";
 import {
-  findArticle,
-  createArticle,
-  deleteArticle,
-  deleteAllArticles,
-  Article,
-  findAllChats,
-  deleteChat,
-  switchInteractive,
-} from "../models";
-import { countDocs } from "../models";
-import { addPrevNext, createPages, splitArray } from "./telegraphPrepare";
-import { detectURL, processURL } from "./urlprocessor";
-import { Atransform } from "./contentTransformer";
+	addPrevNext,
+	createPages,
+	splitArray,
+} from "@/commands/telegraphPrepare";
+import { detectURL, processURL } from "@/commands/urlprocessor";
+import type { Context } from "@/context";
+import {
+	countArticles,
+	createArticle,
+	deleteAllArticles,
+	deleteArticle,
+	findArticle,
+	type Article,
+} from "@/models/articles";
+import { Readability, isProbablyReaderable } from "@mozilla/readability";
+import cheerio from "cheerio";
+import { Composer } from "grammy";
+import { JSDOM, VirtualConsole } from "jsdom";
+import ndl from "needle";
+import telegraph from "telegraph-node";
 
-export function setupBeautify(bot: Telegraf<Context>) {
-  bot.command("clear", async (ctx) => {
-    let [urls, _] = detectURL(ctx.message.reply_to_message);
-    urls.forEach(async (element) => {
-      element = processURL(element);
-      await deleteArticle(element);
-    });
+export const beautify = new Composer<Context>()
+	.command("clear", async (ctx) => {
+		const urls = detectURL(ctx.message.reply_to_message);
 
-    await ctx.deleteMessage(ctx.message.message_id);
-  });
+		for (const url of urls) {
+			const processedUrl = processURL(url);
+			await deleteArticle(processedUrl);
+		}
 
-  bot.command("countChats", async (ctx) => {
-    if (ctx.message.from.id == 180001222) {
-      let chats = await findAllChats();
-      let users_tot = 0;
-      let chat_nr = 0;
-      let users_pr = 0;
-      for (let element of chats) {
-        try {
-          let chatObj = await ctx.telegram.getChat(element.chatId);
-          if (chatObj == undefined) {
-            //delete chat from Chat db by id
-            await deleteChat(element.chatId);
-            continue;
-          }
+		await ctx.deleteMessage();
+	})
+	.command("stats", async (ctx) => {
+		if (ctx.message.from.id === Number.parseInt(process.env.ADMIN_ID)) {
+			ctx.reply(`Total articles: ${await countArticles()}`);
+		}
+	})
+	.command("clearAll", async (ctx) => {
+		if (ctx.message.from.id === Number.parseInt(process.env.ADMIN_ID)) {
+			await deleteAllArticles();
+		}
+		await ctx.deleteMessage();
+	})
+	.command("interactive", async (ctx) => {
+		ctx.session.interactive = !ctx.session.interactive;
+		ctx.session.updatedAt = new Date();
+		ctx.reply(
+			`ok. set to ${
+				ctx.session.interactive ? "interactive" : "non interactive"
+			}`,
+		);
+	})
+	.command("instant", async (ctx) => {
+		const replyMessage = ctx.message.reply_to_message;
+		if (!("text" in replyMessage || "caption" in replyMessage)) {
+			return;
+		}
 
-          if (chatObj.type == "private") {
-            users_pr += 1;
-          } else {
-            chat_nr += 1;
+		const urls = detectURL(replyMessage);
 
-            users_tot += await ctx.telegram.getChatMembersCount(element.chatId);
-          }
-        } catch (err) {
-          console.log(err);
-        }
-      }
-      ctx
-        .reply(
-          "Chat users " +
-            users_tot +
-            "\nPrivate Users " +
-            users_pr +
-            "\nChats " +
-            chat_nr
-        )
-        .catch((err) => console.log(err));
-    }
-  });
+		if (urls.length < 1) {
+			return;
+		}
 
-  bot.command("countDocs", async (ctx) => {
-    if (ctx.message.from.id == 180001222) {
-      ctx.reply(" " + (await countDocs()));
-    }
-  });
+		ctx.api.sendChatAction(ctx.chat.id, "typing");
 
-  bot.command("clearAll", async (ctx) => {
-    //TODO: owner id should be in env
-    //TODO: move chat counting to another package
-    if (ctx.message.from.id == 180001222) {
-      await deleteAllArticles();
-    }
-    await ctx.deleteMessage(ctx.message.message_id);
-  });
+		const resultUrls = await messageProcessing(urls, ctx);
 
-  bot.command("interactive", async (ctx) => {
-    let chat = ctx.dbchat;
-    await switchInteractive(chat.chatId, chat.interactive);
-    ctx.reply("ok");
-  });
+		const text =
+			"text" in replyMessage ? replyMessage.text : replyMessage.caption;
+		const response = generateResponse(text, resultUrls);
 
-  bot.command("instant", async (ctx) => {
-    if (
-      "text" in ctx.message.reply_to_message ||
-      "caption" in ctx.message.reply_to_message
-    ) {
-      let [detected_urls, url_place, url_type] = detectURL(
-        ctx.message.reply_to_message
-      );
-      let final_urls = await messageProcessing(detected_urls, ctx);
-      sendResponse(final_urls, url_place, url_type, ctx, true);
-    }
-  });
+		if (response.length > 0) {
+			ctx.replyWithHTML(response, {
+				reply_to_message_id: ctx.message.message_id,
+			});
+		}
+	})
+	.on("message", async (ctx) => {
+		if (
+			(!ctx.session.interactive || ctx.message.chat.type !== "private") &&
+			!("text" in ctx.message || "caption" in ctx.message)
+		) {
+			return;
+		}
 
-  bot.on(["text", "message"], async (ctx) => {
-    if (ctx.dbchat.interactive || ctx.message.chat.type == "private") {
-      if ("text" in ctx.message || "caption" in ctx.message) {
-        let [detected_urls, url_place, url_type] = detectURL(ctx.message);
+		const urls = detectURL(ctx.message);
 
-        let final_urls = await messageProcessing(detected_urls, ctx);
+		if (urls.length < 1) {
+			return;
+		}
 
-        sendResponse(final_urls, url_place, url_type, ctx);
-      }
-    }
-  });
+		ctx.api.sendChatAction(ctx.chat.id, "typing");
+
+		const resultUrls = await messageProcessing(urls, ctx);
+
+		const text = ctx.message.text ?? ctx.message.caption;
+		const response = generateResponse(text, resultUrls);
+
+		if (response) {
+			ctx.replyWithHTML(response, {
+				reply_to_message_id: ctx.message.message_id,
+			});
+		}
+	});
+
+type Url = {
+	url: string;
+	origin: string;
+};
+
+function generateResponse(text: string, urls: Url[]) {
+	let response = text;
+
+	for (const { url, origin } of urls) {
+		if ([".mp4", ".jpg", ".png"].includes(url.substring(url.length - 4))) {
+			continue;
+		}
+
+		response = response.replaceAll(
+			origin,
+			`<a href='${url}'>${origin}${origin.includes(url) ? "" : "[*]"}</a>`,
+		);
+	}
+
+	return response;
 }
 
-async function messageProcessing(detected_urls: any[], ctx: Context) {
-  var final_urls = [];
-  if (detected_urls.length > 0) {
-    ctx.telegram.sendChatAction(ctx.chat.id, "typing");
-  }
-  for (let l_ind = 0; l_ind < detected_urls.length; ++l_ind) {
-    let link = detected_urls[l_ind];
+async function messageProcessing(detected_urls: string[], ctx: Context) {
+	const uniqueUrls = [...new Set(detected_urls)];
+	const urls: Url[] = [];
 
-    link = processURL(link);
-    let url_obj = new URL(link);
-    let nm = url_obj.hostname;
-    if (false && nm in iv_links) {
-      final_urls.push(link);
-      console.log(link);
-    } else {
-      let art: Article = await findArticle(link);
-      if (art) {
-        final_urls.push(art.telegraphUrl[0]);
-      } else {
-        if (
-          !link.includes("telegra.ph") &&
-          !link.includes("tprg.ru") &&
-          !link.includes("tproger.ru")
-        ) {
-          const virtualConsole = new jsdom.VirtualConsole();
-          let document = undefined;
-          if (link.includes("vc.ru")) {
-            document = await ndl("get", link, {
-              follow_max: 5,
-              decode_response: false,
-            });
-          } else {
-            document = await ndl("get", link, {
-              follow_max: 5,
-              decode_response: true,
-            });
-          }
+	for (let l_ind = 0; l_ind < uniqueUrls.length; ++l_ind) {
+		const origin = uniqueUrls[l_ind];
+		const link = processURL(origin);
 
-          const $ = cheerio.load(document.body);
-          $("div[data-image-src]").replaceWith(function () {
-            const src = $(this).attr("data-image-src");
-            return `<img src=${src}>`;
-          });
-          var doc = undefined;
-          try {
-            doc = new JSDOM($.html(), {
-              virtualConsole,
-              url: link,
-            });
-          } catch {
-            doc = new JSDOM($.html(), {
-              virtualConsole,
-            });
-          }
+		const art: Article = await findArticle(link);
+		if (art) {
+			urls.push({
+				url: art.telegraphUrl[0],
+				origin,
+			});
+		} else {
+			if (
+				!link.includes("telegra.ph") &&
+				!link.includes("tprg.ru") &&
+				!link.includes("tproger.ru")
+			) {
+				const virtualConsole = new VirtualConsole();
+				let document = undefined;
+				if (link.includes("vc.ru")) {
+					document = await ndl("get", link, {
+						follow_max: 5,
+						decode_response: false,
+					});
+				} else {
+					document = await ndl("get", link, {
+						follow_max: 5,
+						decode_response: true,
+					});
+				}
 
-          var documentClone = doc.window.document.cloneNode(true);
-          if (isProbablyReaderable(documentClone)) {
-            let parsed = new Readability(documentClone).parse();
-            if (parsed == null) {
-              console.log("parsed is null");
-              return;
-            }
+				const $ = cheerio.load(document.body);
+				// @ts-expect-error
+				$("div[data-image-src]").replaceWith(function () {
+					const src = $(this).attr("data-image-src");
+					return `<img src=${src}>`;
+				});
+				let doc = undefined;
+				try {
+					doc = new JSDOM($.html(), {
+						virtualConsole,
+						url: link,
+					});
+				} catch {
+					doc = new JSDOM($.html(), {
+						virtualConsole,
+					});
+				}
 
-            ctx.telegram.sendChatAction(ctx.chat.id, "typing");
-            let content = parsed.content; //if null try to process directly with cheerio
-            let title = parsed.title;
+				const documentClone = doc.window.document.cloneNode(true);
+				if (isProbablyReaderable(documentClone)) {
+					const parsed = new Readability(documentClone).parse();
+					if (parsed == null) {
+						console.log("parsed is null");
+						return;
+					}
 
-            const $ = cheerio.load(content);
-            $.html();
-            //todo: if table, transform it to image, upload to telegraph and insert path to it
+					ctx.api.sendChatAction(ctx.chat.id, "typing");
+					const content = parsed.content; //if null try to process directly with cheerio
+					const title = parsed.title;
 
-            let transformed = (await Atransform($("body")[0]))[0];
+					const $ = cheerio.load(content);
+					$.html();
+					//todo: if table, transform it to image, upload to telegraph and insert path to it
 
-            // console.log(JSON.stringify(transformed, null, 2));
-            let chil = transformed.children.filter(
-              (elem) =>
-                typeof elem != "string" ||
-                (typeof elem == "string" && elem.replace(/\s/g, "").length > 0)
-            );
+					const transformed = (await Atransform($("body")[0]))[0];
 
-            const ph = new telegraph();
-            const random_token = process.env.TELEGRAPH_TOKEN;
-            let telegraf_links = Array<string>();
+					// console.log(JSON.stringify(transformed, null, 2));
+					const chil = transformed.children.filter(
+						(elem) =>
+							typeof elem !== "string" ||
+							(typeof elem === "string" && elem.replace(/\s/g, "").length > 0),
+					);
 
-            let article_parts = splitArray(chil, link);
-            // console.log(JSON.stringify(article_parts, null, 2));
-            let parts_url = await createPages(
-              article_parts,
-              random_token,
-              title,
-              ph
-            );
-            addPrevNext(parts_url, random_token, title, ph);
+					const ph = new telegraph();
+					const random_token = process.env.TELEGRAPH_TOKEN;
+					let telegraf_links = Array<string>();
 
-            telegraf_links = parts_url;
+					const article_parts = splitArray(chil, link);
+					// console.log(JSON.stringify(article_parts, null, 2));
+					const parts_url = await createPages(
+						article_parts,
+						random_token,
+						title,
+						ph,
+					);
+					addPrevNext(parts_url, random_token, title, ph);
 
-            await createArticle(link, telegraf_links);
+					telegraf_links = parts_url;
 
-            final_urls.push(telegraf_links[0]);
-            // ctx.replyWithHTML(telegraf_links.join(' '), { reply_to_message_id: ctx.message.message_id })
-          }
-        }
-      }
-      if (final_urls.length < l_ind + 1) {
-        //link can't be transformed
-        final_urls.push(link);
-      }
-    }
-  }
-  return final_urls;
-}
+					await createArticle(link, telegraf_links);
 
-function sendResponse(
-  final_urls: Array<string>,
-  url_place: Array<Array<number>>,
-  url_type: Array<number>,
-  ctx,
-  reply = false
-) {
-  if (final_urls.length > 0) {
-    let orig_msg = "";
-    if (reply) {
-      orig_msg =
-        "text" in ctx.message.reply_to_message
-          ? ctx.message.reply_to_message.text
-          : ctx.message.reply_to_message.caption;
-    } else {
-      orig_msg = "text" in ctx.message ? ctx.message.text : ctx.message.caption;
-    }
-    let new_msg = "";
-    let last_ind = 0;
-    for (let ind = 0; ind < final_urls.length; ++ind) {
-      let elem = final_urls[ind];
-      let [start, offset] = url_place[ind];
-      let link_txt = orig_msg.substr(start, offset);
-      let lnk = "";
-      if (elem.includes("telegra.ph")) {
-        if (
-          elem.length > 4 &&
-          [".mp4", ".jpg", ".png"].includes(elem.substr(elem.length - 4, 4))
-        ) {
-          lnk = ""; //filter url's with files
-        } else {
-          if (url_type[ind] == 1) {
-            // lnk = `<a href='${elem}'>Instant View</a>`
-            lnk = `<a href='${elem}'>${link_txt}[*]</a>`;
-          } else {
-            lnk = `<a href='${elem}'>${link_txt}[*]</a>`;
-          }
-        }
-      } else {
-        lnk = `<a href='${elem}'>${link_txt}</a>`; //keep original links if can't transform
-      }
-
-      new_msg = new_msg + orig_msg.substring(last_ind, start) + lnk;
-      last_ind = start + offset;
-    }
-    new_msg = new_msg + orig_msg.substring(last_ind); //last chunk
-    if (new_msg.length > 0) {
-      ctx.replyWithHTML(new_msg, {
-        reply_to_message_id: ctx.message.message_id,
-      });
-    }
-  }
+					urls.push({
+						url: telegraf_links[0],
+						origin,
+					});
+				}
+			}
+		}
+		if (urls.length < l_ind + 1) {
+			// link can't be transformed
+			urls.push({ url: link, origin });
+		}
+	}
+	return urls;
 }

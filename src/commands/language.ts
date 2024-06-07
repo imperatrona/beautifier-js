@@ -1,65 +1,60 @@
-import { Markup as m } from "telegraf";
-import { Context, Telegraf } from "telegraf";
+import type { Context } from "@/context";
+import { Composer, InlineKeyboard } from "grammy";
+import type { InlineKeyboardButton } from "grammy/types";
+import { readFileSync, readdirSync } from "node:fs";
 
-import { readdirSync, readFileSync } from "fs";
-import { safeLoad } from "js-yaml";
-import { changeLanguage } from "@/models";
+type Locale = {
+	code: string;
+	name: string;
+};
 
-export function setupLanguage(bot: Telegraf<Context>) {
-  bot.command("language", (ctx) => {
-    ctx.reply(ctx.i18n.t("language"), languageKeyboard());
-  });
+const localNameRe = /^name = (.+)$/m;
+const localesPath = "./locales";
 
-  bot.action(
-    localesFiles().map((file) => file.split(".")[0]),
-    async (ctx) => {
-      let chat = ctx.dbchat;
-      if ("data" in ctx.callbackQuery) {
-        chat = await changeLanguage(chat.chatId, ctx.callbackQuery.data);
-        const message = ctx.callbackQuery.message;
+const locales: Locale[] = readdirSync(localesPath).map((localeFile) => ({
+	code: localeFile.split(".")[0],
+	name: localNameRe.exec(
+		readFileSync(`${localesPath}/${localeFile}`, "utf8"),
+	)[1],
+}));
 
-        const anyI18N = ctx.i18n as any;
-        anyI18N.locale(ctx.callbackQuery.data);
+const result: InlineKeyboardButton[][] = [];
 
-        await ctx.telegram.editMessageText(
-          message.chat.id,
-          message.message_id,
-          undefined,
-          ctx.i18n.t("language_selected"),
-          { parse_mode: "HTML" }
-        );
-      }
-    }
-  );
-}
+locales.forEach(({ name, code }, index) => {
+	const key = InlineKeyboard.text(name, code);
 
-function languageKeyboard() {
-  const locales = localesFiles();
-  const result = [];
-  locales.forEach((locale, index) => {
-    const localeCode = locale.split(".")[0];
-    const localeName = safeLoad(
-      readFileSync(`${__dirname}/../../locales/${locale}`, "utf8")
-    ).name;
-    if (index % 2 == 0) {
-      if (index === 0) {
-        result.push([m.button.callback(localeName, localeCode)]);
-      } else {
-        result[result.length - 1].push(
-          m.button.callback(localeName, localeCode)
-        );
-      }
-    } else {
-      result[result.length - 1].push(m.button.callback(localeName, localeCode));
-      if (index < locales.length - 1) {
-        result.push([]);
-      }
-    }
-  });
-  m.inlineKeyboard;
-  return m.inlineKeyboard(result);
-}
+	if (index === 0) {
+		result.push([key]);
+	} else if (index % 2 === 0) {
+		result.at(-1).push(key);
+	} else {
+		result.at(-1).push(key);
+		if (index < locales.length - 1) {
+			result.push([]);
+		}
+	}
+});
 
-function localesFiles() {
-  return readdirSync(`${__dirname}/../../locales`);
-}
+const localesKeyboard = InlineKeyboard.from(result);
+
+export const language = new Composer<Context>();
+
+language.command("language", async (ctx) => {
+	await ctx.reply(ctx.t("language"), {
+		reply_markup: localesKeyboard,
+	});
+});
+
+language.callbackQuery(
+	locales.map((locale) => locale.code),
+	async (ctx) => {
+		const languageCode = ctx.callbackQuery.data;
+
+		await ctx.i18n.setLocale(languageCode);
+		ctx.session.updatedAt = new Date();
+
+		await ctx.editMessageText(ctx.t("language_selected"), {
+			parse_mode: "HTML",
+		});
+	},
+);

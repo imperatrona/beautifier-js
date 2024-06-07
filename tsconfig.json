@@ -1,17 +1,29 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "target": "ES6",
-    "lib": ["es6"],
+    "target": "ES2022",
+    "lib": [
+      "es2022"
+    ],
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "dist",
-    "baseUrl": "src",
+    "baseUrl": "./",
     "paths": {
-      "@/*": ["*"]
+      "@/*": [
+        "src/*"
+      ],
     },
     "emitDecoratorMetadata": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "esModuleInterop": true,
+    "plugins": [
+      {
+        "transform": "typescript-transform-paths"
+      }
+    ]
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*"
+  ],
 }
