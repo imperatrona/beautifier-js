@@ -18,7 +18,6 @@ import { Readability, isProbablyReaderable } from "@mozilla/readability";
 import cheerio from "cheerio";
 import { Composer } from "grammy";
 import { JSDOM, VirtualConsole } from "jsdom";
-import ndl from "needle";
 import telegraph from "telegraph-node";
 
 export const beautify = new Composer<Context>()
@@ -149,21 +148,13 @@ async function messageProcessing(detected_urls: string[], ctx: Context) {
 				!link.includes("tproger.ru")
 			) {
 				const virtualConsole = new VirtualConsole();
-				let document = undefined;
-				if (link.includes("vc.ru")) {
-					document = await ndl("get", link, {
-						follow_max: 5,
-						decode_response: false,
-					});
-				} else {
-					document = await ndl("get", link, {
-						follow_max: 5,
-						decode_response: true,
-					});
-				}
 
-				const $ = cheerio.load(document.body);
-				// @ts-expect-error
+				const document = await fetch(link, {
+					method: "GET",
+					redirect: "follow",
+				}).then((res) => res.text());
+
+				const $ = cheerio.load(document);
 				$("div[data-image-src]").replaceWith(function () {
 					const src = $(this).attr("data-image-src");
 					return `<img src=${src}>`;
